@@ -38,11 +38,11 @@ jobs:
           # the Terraform wrapper will break Terraform execution in Enos because
           # it changes the output to text when we expect it to be JSON.
           terraform_wrapper: false
-          terraform_version: "1.7.5" # Pin until 1.8.x crash has been resolved
       - name: Set up Enos
         uses: hashicorp/action-setup-enos@v1
         with:
           github-token: ${{ secrets.ELEVATED_GITHUB_TOKEN }}
+          version: 0.0.30
       - name: Download Docker Image
         id: download
         uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7

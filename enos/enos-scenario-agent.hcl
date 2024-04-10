@@ -2,6 +2,12 @@
 # SPDX-License-Identifier: BUSL-1.1
 
 scenario "agent" {
+  description = <<-EOF
+    The agent scenario is designed to test the Vault binary running in agent mode against a Vault
+    cluster running the same binary. It performs much of the same verification as the smoke scenario
+    in addition to agent specific verification.
+  EOF
+
   matrix {
     arch            = global.archs
     artifact_source = global.artifact_sources
@@ -28,7 +34,7 @@ scenario "agent" {
     # PKCS#11 can only be used on ent.hsm and ent.hsm.fips1402.
     exclude {
       seal    = ["pkcs11"]
-      edition = ["ce", "ent", "ent.fips1402"]
+      edition = [for e in matrix.edition : e if !strcontains(e, "hsm")]
     }
   }
 
@@ -50,13 +56,9 @@ scenario "agent" {
     vault_install_dir = matrix.artifact_type == "bundle" ? var.vault_install_dir : global.vault_install_dir_packages[matrix.distro]
   }
 
-  step "get_local_metadata" {
-    skip_step = matrix.artifact_source != "local"
-    module    = module.get_local_metadata
-  }
-
   step "build_vault" {
-    module = "build_${matrix.artifact_source}"
+    description = global.description.build_vault
+    module      = "build_${matrix.artifact_source}"
 
     variables {
       build_tags           = var.vault_local_build_tags != null ? var.vault_local_build_tags : global.build_tags[matrix.edition]
@@ -77,11 +79,13 @@ scenario "agent" {
   }
 
   step "ec2_info" {
-    module = module.ec2_info
+    description = global.description.ec2_info
+    module      = module.ec2_info
   }
 
   step "create_vpc" {
-    module = module.create_vpc
+    description = global.description.create_vpc
+    module      = module.create_vpc
 
     variables {
       common_tags = global.tags
@@ -91,8 +95,9 @@ scenario "agent" {
   // This step reads the contents of the backend license if we're using a Consul backend and
   // the edition is "ent".
   step "read_backend_license" {
-    skip_step = matrix.backend == "raft" || var.backend_edition == "ce"
-    module    = module.read_license
+    description = global.description.read_backend_license
+    skip_step   = matrix.backend == "raft" || var.backend_edition == "ce"
+    module      = module.read_license
 
     variables {
       file_name = global.backend_license_path
@@ -100,8 +105,9 @@ scenario "agent" {
   }
 
   step "read_vault_license" {
-    skip_step = matrix.edition == "ce"
-    module    = module.read_license
+    description = global.description.read_vault_license
+    skip_step   = matrix.edition == "ce"
+    module      = module.read_license
 
     variables {
       file_name = global.vault_license_path
@@ -109,8 +115,9 @@ scenario "agent" {
   }
 
   step "create_seal_key" {
-    module     = "seal_${matrix.seal}"
-    depends_on = [step.create_vpc]
+    description = global.description.create_seal_key
+    module      = "seal_${matrix.seal}"
+    depends_on  = [step.create_vpc]
 
     providers = {
       enos = provider.enos.ubuntu
@@ -123,8 +130,9 @@ scenario "agent" {
   }
 
   step "create_vault_cluster_targets" {
-    module     = module.target_ec2_instances
-    depends_on = [step.create_vpc]
+    description = global.description.create_vault_cluster_targets
+    module      = module.target_ec2_instances
+    depends_on  = [step.create_vpc]
 
     providers = {
       enos = local.enos_provider[matrix.distro]
@@ -140,8 +148,9 @@ scenario "agent" {
   }
 
   step "create_vault_cluster_backend_targets" {
-    module     = matrix.backend == "consul" ? module.target_ec2_instances : module.target_ec2_shim
-    depends_on = [step.create_vpc]
+    description = global.description.create_vault_cluster_targets
+    module      = matrix.backend == "consul" ? module.target_ec2_instances : module.target_ec2_shim
+    depends_on  = [step.create_vpc]
 
     providers = {
       enos = provider.enos.ubuntu
@@ -157,7 +166,8 @@ scenario "agent" {
   }
 
   step "create_backend_cluster" {
-    module = "backend_${matrix.backend}"
+    description = global.description.create_backend_cluster
+    module      = "backend_${matrix.backend}"
     depends_on = [
       step.create_vault_cluster_backend_targets
     ]
@@ -165,6 +175,23 @@ scenario "agent" {
     providers = {
       enos = provider.enos.ubuntu
     }
+
+    verifies = [
+      // verified in modules
+      quality.consul_can_start,
+      quality.consul_can_be_configured,
+      quality.consul_can_autojoin_with_aws,
+      quality.consul_can_elect_leader,
+      // verified in enos_consul_start resource
+      quality.consul_cli_validate_validates_configuration,
+      quality.consul_systemd_unit_is_valid,
+      quality.consul_notifies_systemd,
+      quality.consul_has_min_x_healthy_nodes,
+      quality.consul_has_min_x_voters,
+      quality.consul_api_agent_host_returns_host_info,
+      quality.consul_api_health_node_returns_node_health,
+      quality.consul_api_operator_raft_configuration_returns_raft_configuration,
+    ]
 
     variables {
       cluster_name    = step.create_vault_cluster_backend_targets.cluster_name
@@ -179,7 +206,8 @@ scenario "agent" {
   }
 
   step "create_vault_cluster" {
-    module = module.vault_cluster
+    description = global.description.create_vault_cluster
+    module      = module.vault_cluster
     depends_on = [
       step.create_backend_cluster,
       step.build_vault,
@@ -189,6 +217,38 @@ scenario "agent" {
     providers = {
       enos = local.enos_provider[matrix.distro]
     }
+
+    verifies = [
+      // verified in modules
+      quality.vault_can_install_artifact_bundle,
+      quality.vault_can_install_artifact_deb,
+      quality.vault_can_install_artifact_rpm,
+      quality.vault_can_start,
+      quality.vault_can_be_configured_with_env_variables,
+      quality.vault_can_be_configured_with_config_file,
+      quality.vault_can_initialize,
+      quality.vault_can_autojoin_with_aws,
+      quality.vault_can_use_log_auditor,
+      quality.vault_can_use_syslog_auditor,
+      quality.vault_can_use_socket_auditor,
+      quality.vault_can_use_consul_storage,
+      quality.vault_can_use_raft_storage,
+      quality.vault_can_modify_log_level,
+      quality.vault_requires_license_for_enterprise_editions,
+      // verified in enos_vault_start resource
+      quality.vault_systemd_unit_is_valid,
+      quality.vault_notifies_systemd,
+      quality.vault_cli_status_exits_with_correct_code,
+      quality.vault_api_sys_seal_status_api_matches_health,
+      quality.vault_api_sys_health_returns_correct_status,
+      quality.vault_api_sys_config_returns_config,
+      quality.vault_api_sys_ha_status_returns_ha_status,
+      quality.vault_api_sys_host_info_returns_host_info,
+      quality.vault_api_sys_storage_raft_configuration_returns_configuration,
+      quality.vault_api_sys_storage_raft_autopilot_configuration_returns_autopilot_configuration,
+      quality.vault_api_sys_storage_raft_autopilot_state_returns_autopilot_state,
+      quality.vault_api_sys_replication_status_returns_replication_status,
+    ]
 
     variables {
       artifactory_release     = matrix.artifact_source == "artifactory" ? step.build_vault.vault_artifactory_release : null
@@ -214,14 +274,26 @@ scenario "agent" {
     }
   }
 
+  step "get_local_metadata" {
+    description = global.description.get_local_metadata
+    skip_step   = matrix.artifact_source != "local"
+    module      = module.get_local_metadata
+  }
+
   // Wait for our cluster to elect a leader
   step "wait_for_leader" {
-    module     = module.vault_wait_for_leader
-    depends_on = [step.create_vault_cluster]
+    description = global.description.wait_for_cluster_to_have_leader
+    module      = module.vault_wait_for_leader
+    depends_on  = [step.create_vault_cluster]
 
     providers = {
       enos = local.enos_provider[matrix.distro]
     }
+
+    verifies = [
+      quality.vault_can_elect_leader_after_unseal,
+      quality.vault_api_sys_leader_returns_leader,
+    ]
 
     variables {
       timeout           = 120 # seconds
@@ -232,11 +304,17 @@ scenario "agent" {
   }
 
   step "start_vault_agent" {
-    module = "vault_agent"
+    description = global.description.start_vault_agent
+    module      = "vault_agent"
     depends_on = [
       step.build_vault,
       step.create_vault_cluster,
       step.wait_for_leader,
+    ]
+
+    verifies = [
+      quality.vault_can_enable_approle_auth,
+      quality.vault_agent_can_autoauth_with_approle,
     ]
 
     providers = {
@@ -260,6 +338,8 @@ scenario "agent" {
       step.wait_for_leader,
     ]
 
+    verifies = quality.vault_agent_logs_with_the_correct_template_contents
+
     providers = {
       enos = local.enos_provider[matrix.distro]
     }
@@ -272,12 +352,19 @@ scenario "agent" {
   }
 
   step "get_vault_cluster_ips" {
-    module     = module.vault_get_cluster_ips
-    depends_on = [step.wait_for_leader]
+    description = global.description.get_vault_cluster_ip_addresses
+    module      = module.vault_get_cluster_ips
+    depends_on  = [step.wait_for_leader]
 
     providers = {
       enos = local.enos_provider[matrix.distro]
     }
+
+    verifies = [
+      quality.vault_api_sys_ha_status_returns_ha_status,
+      quality.vault_api_sys_leader_returns_leader,
+      quality.vault_cli_operator_members_contains_members,
+    ]
 
     variables {
       vault_hosts       = step.create_vault_cluster_targets.hosts
@@ -287,12 +374,19 @@ scenario "agent" {
   }
 
   step "verify_vault_version" {
-    module     = module.vault_verify_version
-    depends_on = [step.wait_for_leader]
+    description = global.description.verify_vault_version
+    module      = module.vault_verify_version
+    depends_on  = [step.wait_for_leader]
 
     providers = {
       enos = local.enos_provider[matrix.distro]
     }
+
+    verifies = [
+      quality.vault_has_expected_build_date,
+      quality.vault_has_expected_edition,
+      quality.vault_has_expected_version,
+    ]
 
     variables {
       vault_instances       = step.create_vault_cluster_targets.hosts
@@ -306,12 +400,19 @@ scenario "agent" {
   }
 
   step "verify_vault_unsealed" {
-    module     = module.vault_verify_unsealed
-    depends_on = [step.wait_for_leader]
+    description = global.description.verify_vault_unsealed
+    module      = module.vault_verify_unsealed
+    depends_on  = [step.wait_for_leader]
 
     providers = {
       enos = local.enos_provider[matrix.distro]
     }
+
+    verifies = [
+      quality.vault_can_unseal_with_shamir,
+      quality.vault_can_unseal_with_awskms,
+      quality.vault_can_unseal_with_pkcs11,
+    ]
 
     variables {
       vault_install_dir = local.vault_install_dir
@@ -320,7 +421,8 @@ scenario "agent" {
   }
 
   step "verify_write_test_data" {
-    module = module.vault_verify_write_data
+    description = global.description.verify_write_test_data
+    module      = module.vault_verify_write_data
     depends_on = [
       step.create_vault_cluster,
       step.get_vault_cluster_ips
@@ -329,6 +431,13 @@ scenario "agent" {
     providers = {
       enos = local.enos_provider[matrix.distro]
     }
+
+    verifies = [
+      quality.vault_can_mount_auth,
+      quality.vault_can_write_auth_user_policies,
+      quality.vault_can_mount_kv,
+      quality.vault_can_write_kv_data,
+    ]
 
     variables {
       leader_public_ip  = step.get_vault_cluster_ips.leader_public_ip
@@ -340,8 +449,9 @@ scenario "agent" {
   }
 
   step "verify_raft_auto_join_voter" {
-    skip_step = matrix.backend != "raft"
-    module    = module.vault_verify_raft_auto_join_voter
+    description = global.description.verify_all_nodes_are_raft_voters
+    skip_step   = matrix.backend != "raft"
+    module      = module.vault_verify_raft_auto_join_voter
     depends_on = [
       step.create_vault_cluster,
       step.get_vault_cluster_ips
@@ -350,6 +460,8 @@ scenario "agent" {
     providers = {
       enos = local.enos_provider[matrix.distro]
     }
+
+    verifies = quality.vault_all_nodes_are_raft_voters
 
     variables {
       vault_install_dir = local.vault_install_dir
@@ -359,7 +471,8 @@ scenario "agent" {
   }
 
   step "verify_replication" {
-    module = module.vault_verify_replication
+    description = global.description.verify_replication_status
+    module      = module.vault_verify_replication
     depends_on = [
       step.create_vault_cluster,
       step.get_vault_cluster_ips
@@ -369,6 +482,12 @@ scenario "agent" {
       enos = local.enos_provider[matrix.distro]
     }
 
+    verifies = [
+      quality.vault_replication_is_not_enabled_for_ce,
+      quality.vault_dr_replication_status_is_available_ent,
+      quality.vault_pr_replication_status_is_available_ent,
+    ]
+
     variables {
       vault_edition     = matrix.edition
       vault_install_dir = local.vault_install_dir
@@ -377,7 +496,8 @@ scenario "agent" {
   }
 
   step "verify_read_test_data" {
-    module = module.vault_verify_read_data
+    description = global.description.verify_read_test_data
+    module      = module.vault_verify_read_data
     depends_on = [
       step.verify_write_test_data,
       step.verify_replication
@@ -387,6 +507,8 @@ scenario "agent" {
       enos = local.enos_provider[matrix.distro]
     }
 
+    verifies = quality.vault_can_read_kv_data
+
     variables {
       node_public_ips   = step.get_vault_cluster_ips.follower_public_ips
       vault_install_dir = local.vault_install_dir
@@ -394,12 +516,15 @@ scenario "agent" {
   }
 
   step "verify_ui" {
-    module     = module.vault_verify_ui
-    depends_on = [step.create_vault_cluster]
+    description = global.description.verify_ui
+    module      = module.vault_verify_ui
+    depends_on  = [step.create_vault_cluster]
 
     providers = {
       enos = local.enos_provider[matrix.distro]
     }
+
+    verifies = quality.vault_ui_is_available
 
     variables {
       vault_instances = step.create_vault_cluster_targets.hosts

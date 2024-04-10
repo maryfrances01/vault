@@ -55,6 +55,7 @@ jobs:
       - uses: hashicorp/action-setup-enos@v1
         with:
           github-token: ${{ secrets.ELEVATED_GITHUB_TOKEN }}
+          version: 0.0.30
       - id: metadata
         run: |
           build_date=$(make ci-get-date)
@@ -107,7 +108,6 @@ jobs:
           # the Terraform wrapper will break Terraform execution in Enos because
           # it changes the output to text when we expect it to be JSON.
           terraform_wrapper: false
-          terraform_version: "1.7.5" # Pin until 1.8.x crash has been resolved
       - uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_CI }}
@@ -119,6 +119,7 @@ jobs:
       - uses: hashicorp/action-setup-enos@v1
         with:
           github-token: ${{ secrets.ELEVATED_GITHUB_TOKEN }}
+          version: 0.0.30
       - name: Prepare scenario dependencies
         id: prepare_scenario
         run: |
