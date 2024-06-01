@@ -27,7 +27,7 @@ replace github.com/hashicorp/vault/sdk => ./sdk
 require (
 	cloud.google.com/go/cloudsqlconn v1.4.3
 	cloud.google.com/go/monitoring v1.19.0
-	cloud.google.com/go/spanner v1.62.0
+	cloud.google.com/go/spanner v1.63.0
 	cloud.google.com/go/storage v1.41.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.11.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.5.2
@@ -149,7 +149,7 @@ require (
 	github.com/hashicorp/vault-plugin-secrets-alicloud v0.17.0
 	github.com/hashicorp/vault-plugin-secrets-azure v0.19.0
 	github.com/hashicorp/vault-plugin-secrets-gcp v0.19.0
-	github.com/hashicorp/vault-plugin-secrets-gcpkms v0.17.0
+	github.com/hashicorp/vault-plugin-secrets-gcpkms v0.17.1-0.20240601002228-f85ee6bed528
 	github.com/hashicorp/vault-plugin-secrets-kubernetes v0.8.0
 	github.com/hashicorp/vault-plugin-secrets-kv v0.19.0
 	github.com/hashicorp/vault-plugin-secrets-mongodbatlas v0.12.0
@@ -221,7 +221,7 @@ require (
 	golang.org/x/term v0.20.0
 	golang.org/x/text v0.15.0
 	golang.org/x/tools v0.21.0
-	google.golang.org/api v0.181.0
+	google.golang.org/api v0.182.0
 	google.golang.org/grpc v1.64.0
 	google.golang.org/protobuf v1.34.1
 	gopkg.in/ory-am/dockertest.v3 v3.3.4
@@ -238,12 +238,12 @@ require (
 )
 
 require (
-	cloud.google.com/go v0.113.0 // indirect
-	cloud.google.com/go/auth v0.4.1 // indirect
+	cloud.google.com/go v0.114.0 // indirect
+	cloud.google.com/go/auth v0.4.2 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/iam v1.1.8 // indirect
-	cloud.google.com/go/kms v1.17.0 // indirect; indirect\
+	cloud.google.com/go/kms v1.17.1 // indirect; indirect\
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.2 // indirect
@@ -521,9 +521,9 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	google.golang.org/genproto v0.0.0-20240520151616-dc85e6b867a5 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240520151616-dc85e6b867a5 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240515191416-fc5f0ca64291 // indirect; indirect\
+	google.golang.org/genproto v0.0.0-20240528184218-531527333157 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240521202816-d264139d666e // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240521202816-d264139d666e // indirect; indirect\
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/jcmturner/goidentity.v3 v3.0.0 // indirect
