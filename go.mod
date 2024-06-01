@@ -147,7 +147,7 @@ require (
 	github.com/hashicorp/vault-plugin-mock v0.16.1
 	github.com/hashicorp/vault-plugin-secrets-ad v0.18.0
 	github.com/hashicorp/vault-plugin-secrets-alicloud v0.17.0
-	github.com/hashicorp/vault-plugin-secrets-azure v0.19.0
+	github.com/hashicorp/vault-plugin-secrets-azure v0.19.1-0.20240601001043-45cfb416b131
 	github.com/hashicorp/vault-plugin-secrets-gcp v0.19.0
 	github.com/hashicorp/vault-plugin-secrets-gcpkms v0.17.0
 	github.com/hashicorp/vault-plugin-secrets-kubernetes v0.8.0
@@ -444,7 +444,7 @@ require (
 	github.com/microsoft/kiota-serialization-json-go v1.0.7 // indirect
 	github.com/microsoft/kiota-serialization-multipart-go v1.0.0 // indirect
 	github.com/microsoft/kiota-serialization-text-go v1.0.0 // indirect
-	github.com/microsoftgraph/msgraph-sdk-go v1.42.0 // indirect
+	github.com/microsoftgraph/msgraph-sdk-go v1.44.0 // indirect
 	github.com/microsoftgraph/msgraph-sdk-go-core v1.1.0 // indirect
 	github.com/miekg/dns v1.1.50 // indirect
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
