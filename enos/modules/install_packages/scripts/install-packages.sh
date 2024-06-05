@@ -17,15 +17,14 @@ fail() {
 install_packages() {
   if [[ "${PACKAGES}" = "__skip" ]]; then
     return 0
-  fi 
+  fi
 
   set -x
   echo "Installing Dependencies: ${PACKAGES}"
 
   # Use the default package manager of the current Linux distro to install packages
   case $PACKAGE_MANAGER in
-
-    "apt")
+    apt)
       sudo apt update
       for package in ${PACKAGES}; do
         if dpkg -s "${package}"; then
@@ -35,9 +34,8 @@ install_packages() {
           sudo apt install -y "${package}"
         fi
       done
-      ;;
-
-    "yum")
+    ;;
+    yum)
       for package in ${PACKAGES}; do
         if rpm -q "${package}"; then
           continue
@@ -46,27 +44,25 @@ install_packages() {
           sudo yum -y install "${package}"
         fi
       done
-      ;;
-
-    "zypper")
-      cd /tmp
-      sudo zypper --gpg-auto-import-keys ref
+    ;;
+    zypper)
+      # Refresh our repos a single time instead of on every package invocation
+      sudo zypper --non-interactive --gpg-auto-import-keys ref
       for package in ${PACKAGES}; do
         if rpm -q "${package}"; then
+          echo "Skipping installation of ${package} because it is already installed"
           continue
         else
           echo "Installing ${package}"
-          sudo zypper --non-interactive install "${package}"
-          date
+          if ! output=$(sudo zypper --no-refresh --non-interactive install "${package}" 2>&1); then
+            fail "Failed to install ${package}: ${output}"
+          fi
         fi
-        sudo zypper search -i
       done
-      ;;
-
+    ;;
     *)
       fail "No matching package manager provided."
-      ;;
-
+    ;;
   esac
 }
 
