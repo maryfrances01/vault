@@ -15,7 +15,7 @@ locals {
     "arm64" = "aarch64"
   }
   package_manager = {
-    # Note: though we generally use "amzn2" as our distro name for Amazon Linux 2, 
+    # Note: though we generally use "amzn2" as our distro name for Amazon Linux 2,
     # enos_host_info.hosts[each.key].distro returns "amzn", so that is what we reference here.
     "amzn"          = "yum"
     "opensuse-leap" = "zypper"

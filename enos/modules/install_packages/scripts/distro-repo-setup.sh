@@ -13,39 +13,55 @@ fail() {
 [[ -z "$RETRY_INTERVAL" ]] && fail "RETRY_INTERVAL env variable has not been set"
 [[ -z "$TIMEOUT_SECONDS" ]] && fail "TIMEOUT_SECONDS env variable has not been set"
 
-retry() {
-  local retries=$1
-  shift
-  local count=0
+# SLES configures the default repositories using SUSEConnect, which is wrapped but a startup
+# systemd unit called guestregister.service. This oneshot service needs to complete before
+# any other repo or package steps are completed. It's very unreliable so we have to handle it
+# ourselves here.
+#
+# Check if the guestregister.service has reached the correct "inactive" state that we need.
+# If it hasn't and the service isn't in some kind of active state, restart the service so that
+# we can get another registration attempt.
+guestregister_service_healthy() {
+  local active_state
+  local failed_state
 
-  until "$@"; do
-    exit=$?
-    wait=$((2 ** count))
-    count=$((count + 1))
-    if [ "$count" -lt "$retries" ]; then
-      sleep "$wait"
-    else
-      return "$exit"
-    fi
-  done
+  # systemctl returns non-zero exit codes. We rely on output here because all states don't have
+  # their own exit code.
+  set +e
+  active_state=$(sudo systemctl is-active guestregister.service)
+  failed_state=$(sudo systemctl is-failed guestregister.service)
+  set -e
 
-  return 0
+  case "$active_state" in
+    active|activating|deactivating)
+      return 1
+    ;;
+    *)
+      if [ "$active_state" == "inactive" ] && [ "$failed_state" == "inactive" ]; then
+        # The oneshot has completed and hasn't "failed"
+        return 0
+      fi
+
+      # Our service is stopped and failed, restart it and hope it works the next time
+      sudo systemctl restart --wait guestregister.service
+    ;;
+  esac
 }
 
 ensure_zypper_guestregister_service() {
-  # Occasionally, but often enough to cause issues, the SLES provided guestregister.service will
-  # fail to properly enroll the instance with SUSEConnet and we'll be left without default repos.
-
-  # Until this is resolved upstream we'll need to be defensive and ensure that the service is
-  # hasn't failed.
-  if sudo systemctl is-failed guestregister.service; then
-    retry 2 sudo systemctl restart guestregister.service
+  local health_output
+  if ! health_output=$(guestregister_service_healthy); then
+    echo "the guestregister.service failed to reach a healthy state: ${health_output}" 1>&2
+    return 1
   fi
 
   # Make sure Zypper has repositories.
-  if ! output=$(zypper lr); then
-    fail "The guestregister.service failed. Unable to SUSEConnet and thus have no Zypper repositories: ${output}."
+  if ! lr_output=$(zypper lr); then
+    echo "The guestregister.service failed. Unable to SUSEConnect and thus have no Zypper repositories: ${lr_output}: ${health_output}." 1>&2
+    return 1
   fi
+
+  return 0
 }
 
 setup_repos() {
@@ -87,9 +103,12 @@ setup_repos() {
 begin_time=$(date +%s)
 end_time=$((begin_time + TIMEOUT_SECONDS))
 while [ "$(date +%s)" -lt "$end_time" ]; do
-  if [ "$DISTRO" == sles ]; then
+  if [ "$DISTRO" == "sles" ]; then
     # Make sure Zypper has repositories before we configure additional repositories
-    ensure_zypper_guestregister_service
+    if ! ensure_zypper_guestregister_service; then
+      sleep "$RETRY_INTERVAL"
+      continue
+    fi
   fi
 
   if setup_repos; then
@@ -99,4 +118,4 @@ while [ "$(date +%s)" -lt "$end_time" ]; do
   sleep "$RETRY_INTERVAL"
 done
 
-fail "Timed out waiting for distro repos to install"
+fail "Timed out waiting for distro repos to be set up"
